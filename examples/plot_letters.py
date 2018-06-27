@@ -29,6 +29,7 @@ window features or non-linear kernels. This example is more meant to give a
 demonstration of the CRF than to show its superiority.
 """
 import numpy as np
+import pdb
 import matplotlib.pyplot as plt
 
 from sklearn.svm import LinearSVC
@@ -54,6 +55,7 @@ svm.fit(np.vstack(X_train), np.hstack(y_train))
 
 # Train linear chain CRF
 model = ChainCRF()
+# pdb.set_trace()
 ssvm = FrankWolfeSSVM(model=model, C=.1, max_iter=11)
 ssvm.fit(X_train, y_train)
 

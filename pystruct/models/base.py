@@ -13,8 +13,8 @@ class StructuredModel(object):
 
     def __init__(self):
         """Initialize the model.
-        Needs to set self.size_joint_feature, the dimensionalty of the joint features for
-        an instance with labeling (x, y).
+        Needs to set self.size_joint_feature, the dimensionalty of the joint
+        features for an instance with labeling (x, y).
         """
         self.size_joint_feature = None
 
