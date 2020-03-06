@@ -47,6 +47,7 @@ def inference_max_product(unary_potentials, pairwise_potentials, edges,
     tol : float (default=1e-5)
         Stopping tollerance for loopy message passing.
     """
+    # import pdb; pdb.set_trace()
     from ._viterbi import viterbi
     n_states, pairwise_potentials = \
         _validate_params(unary_potentials, pairwise_potentials, edges)

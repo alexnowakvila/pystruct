@@ -67,6 +67,7 @@ def find_constraint(model, x, y, w, y_hat=None, relaxed=True,
     if getattr(model, 'rescale_C', False):
         delta_joint_feature = -joint_feature(x, y_hat, y)
     else:
+        # basicament passa si la condicio es certa
         delta_joint_feature = -joint_feature(x, y_hat)
     if compute_difference:
         if getattr(model, 'rescale_C', False):
@@ -81,6 +82,30 @@ def find_constraint(model, x, y, w, y_hat=None, relaxed=True,
         loss = model.loss(y, y_hat)
     slack = max(loss - np.dot(w, delta_joint_feature), 0)
     return y_hat, delta_joint_feature, slack, loss
+
+def generalized_find_constraint(model, x, y, mu, w, mu_hat=None, relaxed=True,
+                    compute_difference=True):
+    """Find most violated constraint in the generalized case.
+    """
+
+    if mu_hat is None:
+        mu_hat, dual_gap = model.loss_augmented_inference(x, mu, w, relaxed=relaxed)
+
+    joint_feature = model.joint_feature
+    mean_joint_feature = model.mean_joint_feature
+    if getattr(model, 'rescale_C', False):
+        delta_joint_feature = -mean_joint_feature(x, mu_hat, y)
+    else:
+        delta_joint_feature = -mean_joint_feature(x, mu_hat)
+    if compute_difference:
+        if getattr(model, 'rescale_C', False):
+            delta_joint_feature += joint_feature(x, y, y)
+        else:
+            delta_joint_feature += joint_feature(x, y)
+    loss = model.Bayes_risk(mu_hat)
+    # slack = max(loss - np.dot(w, delta_joint_feature), 0)
+    slack = loss - np.dot(w, delta_joint_feature)
+    return mu_hat, delta_joint_feature, slack, loss, dual_gap
 
 
 def find_constraint_latent(model, x, y, w, relaxed=True):

@@ -6,8 +6,10 @@ from .one_slack_ssvm import OneSlackSSVM
 from .latent_structured_svm import LatentSSVM
 from .subgradient_latent_ssvm import SubgradientLatentSSVM
 from .frankwolfe_ssvm import FrankWolfeSSVM
+from .generalized_frankwolfe_ssvm import GeneralizedFrankWolfeSSVM
 
 
 __all__ = ["NSlackSSVM", "SubgradientSSVM",
            "PrimalDSStructuredSVM", "StructuredPerceptron", "LatentSSVM",
-           "OneSlackSSVM", "SubgradientLatentSSVM", "FrankWolfeSSVM"]
+           "OneSlackSSVM", "SubgradientLatentSSVM", "FrankWolfeSSVM",
+           "GeneralizedFrankWolfeSSVM"]

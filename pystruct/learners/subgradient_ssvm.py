@@ -125,6 +125,7 @@ class SubgradientSSVM(BaseSSVM):
         self.decay_t0 = decay_t0
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.effective_lr = learning_rate
 
     def _solve_subgradient(self, djoint_feature, n_samples, w):
         """Do a single subgradient step."""
@@ -133,12 +134,12 @@ class SubgradientSSVM(BaseSSVM):
         self.grad_old = ((1 - self.momentum) * grad
                          + self.momentum * self.grad_old)
         if self.decay_exponent == 0:
-            effective_lr = self.learning_rate_
+            self.effective_lr = self.learning_rate_
         else:
-            effective_lr = (self.learning_rate_
+            self.effective_lr = (self.learning_rate_
                             / (self.t + self.decay_t0)
                             ** self.decay_exponent)
-        w += effective_lr * self.grad_old
+        w += self.effective_lr * self.grad_old
 
         if self.averaging == 'linear':
             rho = 2. / (self.t + 2.)
@@ -214,6 +215,7 @@ class SubgradientSSVM(BaseSSVM):
                     print("positive slacks: %d,"
                           "objective: %f" %
                           (positive_slacks, objective))
+                    print("learning rate: %f" % (self.effective_lr))
                 self.timestamps_.append(time() - self.timestamps_[0])
                 self.objective_curve_.append(self._objective(X, Y))
 

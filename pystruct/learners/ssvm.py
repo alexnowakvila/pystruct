@@ -67,7 +67,7 @@ class BaseSSVM(BaseEstimator):
             losses = [self.model.loss(y, y_pred)
                       for y, y_pred in zip(Y, self.predict(X))]
         max_losses = [self.model.max_loss(y) for y in Y]
-        return 1. - np.sum(losses) / float(np.sum(max_losses))
+        return np.mean(losses)
 
     def _compute_training_loss(self, X, Y, iteration):
         # optionally compute training loss for output / training curve

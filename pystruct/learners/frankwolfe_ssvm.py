@@ -11,6 +11,7 @@
 import warnings
 from time import time
 import numpy as np
+import pdb
 from sklearn.utils import check_random_state
 
 from pystruct.learners.ssvm import BaseSSVM
@@ -126,7 +127,7 @@ class FrankWolfeSSVM(BaseSSVM):
         self.sample_method = sample_method
         self.random_state = random_state
 
-    def _calc_dual_gap(self, X, Y):
+    def _calc_dual_gap(self, X, Y, mu):
         n_samples = len(X)
         # FIXME don't calculate this again
         joint_feature_gt = self.model.batch_joint_feature(X, Y, Y)
@@ -136,11 +137,12 @@ class FrankWolfeSSVM(BaseSSVM):
         ls = np.sum(self.model.batch_loss(Y, Y_hat))
         ws = djoint_feature * self.C
         l_rescaled = self.l * n_samples * self.C
-
+        # pdb.set_trace()
         dual_val = -0.5 * np.sum(self.w ** 2) + l_rescaled
         w_diff = self.w - ws
         dual_gap = w_diff.T.dot(self.w) - l_rescaled + ls * self.C
         primal_val = dual_val + dual_gap
+        # import pdb; pdb.set_trace()
         return dual_val, dual_gap, primal_val
 
     def _frank_wolfe_batch(self, X, Y):
@@ -205,11 +207,14 @@ class FrankWolfeSSVM(BaseSSVM):
         l_mat = np.zeros(n_samples)
         l = 0.0
         k = 0
+        mu = np.zeros((n_samples, self.model.n_states))
+        for i in range(n_samples):
+            mu[i, Y[i]] = 1
 
         rng = check_random_state(self.random_state)
         for iteration in range(self.max_iter):
-            if self.verbose > 0:
-                print("Iteration %d" % iteration)
+            # if self.verbose > 0:
+            #     print("Iteration %d" % iteration)
 
             perm = np.arange(n_samples)
             if self.sample_method == 'perm':
@@ -220,8 +225,18 @@ class FrankWolfeSSVM(BaseSSVM):
             for j in range(n_samples):
                 i = perm[j]
                 x, y = X[i], Y[i]
-                y_hat, delta_joint_feature, slack, loss = find_constraint(self.model, x, y, w)
-                # ws and ls
+                ###############################################################
+                #  Find constraint
+                ###############################################################
+
+                y_hat = self.model.loss_augmented_inference(x, y, w, relaxed=True)
+                delta_joint_feature = self.model.joint_feature(x, y) - self.model.joint_feature(x, y_hat)
+                loss = self.model.loss(y, y_hat)
+                # y_hat, delta_joint_feature, slack, loss = find_constraint(self.model, x, y, w)
+                ###############################################################
+                #  Compute ws and ls
+                ###############################################################
+
                 ws = delta_joint_feature * self.C
                 ls = loss / n_samples
 
@@ -243,6 +258,10 @@ class FrankWolfeSSVM(BaseSSVM):
                 l_mat[i] = (1.0 - gamma) * l_mat[i] + gamma * ls
                 l += l_mat[i]
 
+                mu_hat = np.zeros(mu.shape[1])
+                mu_hat[y_hat] = 1
+                mu[i] = (1.0 - gamma) * mu[i] + gamma * mu_hat
+
                 if self.do_averaging:
                     rho = 2. / (k + 2.)
                     self.w = (1. - rho) * self.w + rho * w
@@ -253,19 +272,16 @@ class FrankWolfeSSVM(BaseSSVM):
                 k += 1
 
             if (self.check_dual_every != 0) and (iteration % self.check_dual_every == 0):
-                dual_val, dual_gap, primal_val = self._calc_dual_gap(X, Y)
+                dual_val, dual_gap, primal_val = self._calc_dual_gap(X, Y, mu)
                 self.primal_objective_curve_.append(primal_val)
                 self.objective_curve_.append(dual_val)
                 self.timestamps_.append(time() - self.timestamps_[0])
                 if self.verbose > 0:
-                    print("dual: %f, dual_gap: %f, primal: %f"
-                          % (dual_val, dual_gap, primal_val))
+                    print("dual: %f, dual_gap: %f, primal: %f, Iteration: %d"
+                          % (dual_val, dual_gap, primal_val, iteration))
 
             if self.logger is not None:
                 self.logger(self, iteration)
-
-            if dual_gap < self.tol:
-                return
 
     def fit(self, X, Y, constraints=None, initialize=True):
         """Learn parameters using (block-coordinate) Frank-Wolfe learning.

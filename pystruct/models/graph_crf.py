@@ -1,4 +1,5 @@
 import numpy as np
+import pdb
 
 from .crf import CRF
 from ..utils import expand_sym, compress_sym
@@ -153,7 +154,6 @@ class GraphCRF(CRF):
         features = self._get_features(x)
         unary_params = w[:self.n_states * self.n_features].reshape(
             self.n_states, self.n_features)
-
         return np.dot(features, unary_params.T)
 
     def joint_feature(self, x, y):
@@ -201,12 +201,11 @@ class GraphCRF(CRF):
             ##accumulated pairwise
             pw = np.dot(unary_marginals[edges[:, 0]].T,
                         unary_marginals[edges[:, 1]])
-
+            # import pdb; pdb.set_trace()
         unaries_acc = np.dot(unary_marginals.T, features)
         if self.directed:
             pw = pw.ravel()
         else:
             pw = compress_sym(pw)
-
         joint_feature_vector = np.hstack([unaries_acc.ravel(), pw])
         return joint_feature_vector

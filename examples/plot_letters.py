@@ -36,7 +36,10 @@ from sklearn.svm import LinearSVC
 
 from pystruct.datasets import load_letters
 from pystruct.models import ChainCRF
-from pystruct.learners import FrankWolfeSSVM
+# from pystruct.learners import FrankWolfeSSVM
+
+from pystruct.learners import (NSlackSSVM, OneSlackSSVM,
+                               SubgradientSSVM, FrankWolfeSSVM, GeneralizedFrankWolfeSSVM)
 
 abc = "abcdefghijklmnopqrstuvwxyz"
 
@@ -56,7 +59,7 @@ svm.fit(np.vstack(X_train), np.hstack(y_train))
 # Train linear chain CRF
 model = ChainCRF()
 # pdb.set_trace()
-ssvm = FrankWolfeSSVM(model=model, C=.1, max_iter=11)
+ssvm = FrankWolfeSSVM(model=model, C=.1, check_dual_every=10, max_iter=100, verbose=True)
 ssvm.fit(X_train, y_train)
 
 print("Test score with chain CRF: %f" % ssvm.score(X_test, y_test))

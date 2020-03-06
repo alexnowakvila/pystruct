@@ -76,3 +76,9 @@ class ChainCRF(GraphCRF):
 
         self._set_size_joint_feature()
         self._set_class_weight()
+
+    # def loss(self, y, y_hat):
+    #     L = 0
+    #     for m in range(y.shape[0]):
+    #         L += self.Loss[y[m], y_hat[m]]
+    #     return L / y.shape[0]

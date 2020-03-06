@@ -1,4 +1,5 @@
 import numpy as np
+import pdb
 
 from .base import StructuredModel
 from .utils import crammer_singer_joint_feature
@@ -163,7 +164,7 @@ class MultiClassClf(StructuredModel):
         or just rescale the loss.
     """
     def __init__(self, n_features=None, n_classes=None, class_weight=None,
-                 rescale_C=False):
+                 rescale_C=False, Loss=None):
         # one weight-vector per class
         self.n_states = n_classes
         self.n_features = n_features
@@ -172,6 +173,7 @@ class MultiClassClf(StructuredModel):
         self.inference_calls = 0
         self._set_size_joint_feature()
         self._set_class_weight()
+        self.Loss = Loss
 
     def _set_size_joint_feature(self):
         if None not in [self.n_states, self.n_features]:
@@ -224,30 +226,15 @@ class MultiClassClf(StructuredModel):
         # put feature vector in the place of the weights corresponding to y
         result = np.zeros((self.n_states, self.n_features))
         result[y, :] = x
-        if self.rescale_C:
-            if y_true is None:
-                raise ValueError("rescale_C is true, but no y_true was passed"
-                                 " to joint_feature.")
-            result *= self.class_weight[y_true]
-
         return result.ravel()
 
     def batch_joint_feature(self, X, Y, Y_true=None):
         result = np.zeros((self.n_states, self.n_features))
-        if self.rescale_C:
-            if Y_true is None:
-                raise ValueError("rescale_C is true, but no y_true was passed"
-                                 " to joint_feature.")
-            for l in range(self.n_states):
-                mask = Y == l
-                class_weight = self.class_weight[Y_true[mask]][:, np.newaxis]
-                result[l, :] = np.sum(X[mask, :] * class_weight, axis=0)
-        else:
-            # if we don't have class weights, we can use our efficient
-            # implementation
-            assert(X.shape[0] == Y.shape[0])
-            assert(X.shape[1] == self.n_features)
-            crammer_singer_joint_feature(X, Y, result)
+        assert(X.shape[0] == Y.shape[0])
+        assert(X.shape[1] == self.n_features)
+        result = np.zeros((self.n_states * self.n_features))
+        for i in range(X.shape[0]):
+            result += self.joint_feature(X[i], Y[i])
         return result.ravel()
 
     def inference(self, x, w, relaxed=None, return_energy=False):
@@ -279,6 +266,10 @@ class MultiClassClf(StructuredModel):
             return np.argmax(scores), np.max(scores)
         return np.argmax(scores)
 
+    def batch_inference(self, X, w, relaxed=None):
+        scores = np.dot(X, w.reshape(self.n_states, -1).T)
+        return np.argmax(scores, axis=1)
+
     def loss_augmented_inference(self, x, y, w, relaxed=None,
                                  return_energy=False):
         """Loss-augmented inference for x and y using parameters w.
@@ -306,30 +297,23 @@ class MultiClassClf(StructuredModel):
         self.inference_calls += 1
         scores = np.dot(w.reshape(self.n_states, -1), x)
         other_classes = np.arange(self.n_states) != y
-        if self.rescale_C:
-            scores[other_classes] += 1
-        else:
-            scores[other_classes] += self.class_weight[y]
-        if return_energy:
-            return np.argmax(scores), np.max(scores)
+        add = self.Loss[np.arange(self.n_states), y]
+        scores += add
         return np.argmax(scores)
 
     def batch_loss_augmented_inference(self, X, Y, w, relaxed=None):
         scores = np.dot(X, w.reshape(self.n_states, -1).T)
         other_classes = (np.arange(self.n_states) != Y[:, np.newaxis])
-        if self.rescale_C or self.uniform_class_weight:
-            scores[other_classes] += 1
-        else:
-            scores[other_classes] += np.repeat(self.class_weight[Y],
-                                               self.n_states - 1)
-        return np.argmax(scores, axis=1)
-
-    def batch_inference(self, X, w, relaxed=None):
-        scores = np.dot(X, w.reshape(self.n_states, -1).T)
-        return np.argmax(scores, axis=1)
-
-    def batch_loss(self, Y, Y_hat):
-        return self.class_weight[Y] * (Y != Y_hat)
+        y_hat = np.zeros(X.shape[0], dtype=int)
+        for i in range(X.shape[0]):
+            y_hat[i] = self.loss_augmented_inference(X[i], Y[i], w)
+        return y_hat
 
     def loss(self, y, y_hat):
-        return self.class_weight[y] * (y != y_hat)
+        return self.Loss[y, y_hat]
+
+    def batch_loss(self, Y, Y_hat):
+        loss = []
+        for i in range(Y.shape[0]):
+            loss.append(self.Loss[Y[i], Y_hat[i]])
+        return np.array(loss)
